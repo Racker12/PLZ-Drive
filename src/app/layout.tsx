@@ -3,9 +3,9 @@ import "./globals.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 export const metadata: Metadata = {
-  title: "PLZ Drive — Deine Straßen. Deine Fahrt.",
+  title: "PLZ Drive 3D — Deine Straßen. Deine Fahrt.",
   description:
-    "Gib deine deutsche Postleitzahl ein und erkunde echte Straßen mit deinem Auto. Ein kleines Browser-Spiel mit OpenStreetMap.",
+    "Gib deine deutsche Postleitzahl ein und erkunde echte Straßen mit deinem Auto. Ein 3D-Browser-Spiel mit echten OpenStreetMap-Straßen.",
 };
 
 export default function RootLayout({

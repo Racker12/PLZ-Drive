@@ -1,24 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  advanceDriving,
-  createDrivingState,
-  drivableNodeIds,
-  type DrivingDirection,
-  type DrivingState,
-} from "../lib/driving";
+import { selectStartNode } from "../lib/graph";
 import type { GameWorld } from "../lib/types";
+import {
+  advanceVehicle,
+  createVehicleState,
+  EMPTY_VEHICLE_INPUTS,
+  stopVehicle,
+  type VehicleInput,
+  type VehicleInputs,
+  type VehicleState,
+} from "../lib/vehicle";
 
-const KEY_DIRECTIONS: Record<string, DrivingDirection> = {
-  ArrowUp: "north",
-  KeyW: "north",
-  ArrowRight: "east",
-  KeyD: "east",
-  ArrowDown: "south",
-  KeyS: "south",
-  ArrowLeft: "west",
-  KeyA: "west",
+const KEY_INPUTS: Record<string, VehicleInput> = {
+  ArrowUp: "throttle",
+  KeyW: "throttle",
+  ArrowDown: "brake",
+  KeyS: "brake",
+  ArrowLeft: "left",
+  KeyA: "left",
+  ArrowRight: "right",
+  KeyD: "right",
 };
 
 function isEditing(target: EventTarget | null): boolean {
@@ -30,30 +33,44 @@ function isEditing(target: EventTarget | null): boolean {
 }
 
 export function useDriving(world: GameWorld | null) {
-  const [state, setState] = useState<DrivingState | null>(null);
+  const [state, setState] = useState<VehicleState | null>(null);
   const [paused, updatePaused] = useState(false);
-  const [heldDirection, setHeldDirection] = useState<DrivingDirection | null>(
-    null,
-  );
-  const stateRef = useRef<DrivingState | null>(null);
+  const [heldInputs, setHeldInputs] = useState<VehicleInputs>({
+    ...EMPTY_VEHICLE_INPUTS,
+  });
+  const stateRef = useRef<VehicleState | null>(null);
   const worldRef = useRef(world);
   const pausedRef = useRef(false);
-  const directionRef = useRef<DrivingDirection | null>(null);
-  const pressedRef = useRef(new Map<string, DrivingDirection>());
+  const inputsRef = useRef<VehicleInputs>({ ...EMPTY_VEHICLE_INPUTS });
+  const pressedRef = useRef(new Map<string, VehicleInput>());
 
-  const refreshDirection = useCallback(() => {
-    const pressed = [...pressedRef.current.values()];
-    const direction = pressed.at(-1) ?? null;
-    directionRef.current = direction;
-    setHeldDirection(direction);
+  const refreshInputs = useCallback(() => {
+    const inputs = { ...EMPTY_VEHICLE_INPUTS };
+    for (const input of pressedRef.current.values()) inputs[input] = true;
+    inputsRef.current = inputs;
+    setHeldInputs(inputs);
+    const intent: VehicleState["steeringIntent"] =
+      inputs.left === inputs.right ? 0 : inputs.left ? -1 : 1;
+    const current = stateRef.current;
+    if (current && intent !== current.steeringIntent) {
+      // A quick release and press can happen between animation frames. Rearm
+      // here so the next real junction receives that fresh steering command.
+      const rearmed = {
+        ...current,
+        steeringIntent: intent,
+        steeringConsumed: false,
+      };
+      stateRef.current = rearmed;
+      setState(rearmed);
+    }
   }, []);
 
   const stop = useCallback(() => {
     pressedRef.current.clear();
-    directionRef.current = null;
-    setHeldDirection(null);
+    inputsRef.current = { ...EMPTY_VEHICLE_INPUTS };
+    setHeldInputs(inputsRef.current);
     if (stateRef.current) {
-      const stopped = { ...stateRef.current, running: false, speedKmh: 0 };
+      const stopped = stopVehicle(stateRef.current);
       stateRef.current = stopped;
       setState(stopped);
     }
@@ -68,39 +85,49 @@ export function useDriving(world: GameWorld | null) {
     [stop],
   );
 
-  const togglePause = useCallback(() => {
-    setPaused(!pausedRef.current);
-  }, [setPaused]);
+  const togglePause = useCallback(
+    () => setPaused(!pausedRef.current),
+    [setPaused],
+  );
 
   const press = useCallback(
-    (direction: DrivingDirection) => {
-      pressedRef.current.set(`pointer:${direction}`, direction);
-      refreshDirection();
+    (input: VehicleInput) => {
+      if (pausedRef.current) return;
+      pressedRef.current.set(`pointer:${input}`, input);
+      refreshInputs();
     },
-    [refreshDirection],
+    [refreshInputs],
   );
 
   const release = useCallback(
-    (direction: DrivingDirection) => {
-      pressedRef.current.delete(`pointer:${direction}`);
-      refreshDirection();
+    (input: VehicleInput) => {
+      pressedRef.current.delete(`pointer:${input}`);
+      // Releasing a pedal lets the engine coast rather than instantly stop.
+      refreshInputs();
     },
-    [refreshDirection],
+    [refreshInputs],
   );
 
   const relocate = useCallback(
     (nodeId?: string) => {
       const currentWorld = worldRef.current;
       if (!currentWorld) return;
+      const currentNodeId = stateRef.current?.nodeId;
       stop();
-      const candidates = drivableNodeIds(currentWorld.graph).filter(
-        (id) => id !== stateRef.current?.nodeId,
-      );
-      const selected =
-        nodeId ??
-        candidates[Math.floor(Math.random() * candidates.length)] ??
-        currentWorld.startNodeId;
-      const initial = createDrivingState(currentWorld, selected);
+      let selected =
+        nodeId ?? selectStartNode(currentWorld.graph, currentWorld.center);
+      if (!nodeId && selected === currentNodeId) {
+        // Exclude the previous location without mutating the immutable world.
+        const remaining = {
+          ...currentWorld.graph,
+          edges: currentWorld.graph.edges.filter(
+            (edge) => edge.from !== currentNodeId,
+          ),
+        };
+        if (remaining.edges.length)
+          selected = selectStartNode(remaining, currentWorld.center);
+      }
+      const initial = createVehicleState(currentWorld, selected);
       stateRef.current = initial;
       setState(initial);
     },
@@ -110,14 +137,12 @@ export function useDriving(world: GameWorld | null) {
   useEffect(() => {
     worldRef.current = world;
     pressedRef.current.clear();
-    directionRef.current = null;
+    inputsRef.current = { ...EMPTY_VEHICLE_INPUTS };
     pausedRef.current = false;
-    const initial = world ? createDrivingState(world) : null;
-    stateRef.current = initial;
-    // Publish the new animation snapshot on its frame, not during effect setup.
+    stateRef.current = world ? createVehicleState(world) : null;
     const requestId = requestAnimationFrame(() => {
       updatePaused(pausedRef.current);
-      setHeldDirection(directionRef.current);
+      setHeldInputs(inputsRef.current);
       setState(stateRef.current);
     });
     return () => cancelAnimationFrame(requestId);
@@ -127,18 +152,17 @@ export function useDriving(world: GameWorld | null) {
     if (!world) return;
     let requestId = 0;
     let previousTime: number | null = null;
-
     const tick = (time: number) => {
-      // Bound elapsed time so resuming a background tab never jumps the car.
+      // Bound RAF time so a slow frame or a background tab never teleports.
       const elapsed =
         previousTime === null ? 0 : Math.min((time - previousTime) / 1000, 0.1);
       previousTime = time;
       const current = stateRef.current;
-      if (current) {
-        const next = advanceDriving(
+      if (current && !pausedRef.current) {
+        const next = advanceVehicle(
           world.graph,
           current,
-          pausedRef.current ? null : directionRef.current,
+          inputsRef.current,
           elapsed,
         );
         if (next !== current) {
@@ -148,14 +172,12 @@ export function useDriving(world: GameWorld | null) {
       }
       requestId = requestAnimationFrame(tick);
     };
-
     requestId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(requestId);
   }, [world]);
 
   useEffect(() => {
     if (!world) return;
-
     const onKeyDown = (event: KeyboardEvent) => {
       if (
         isEditing(event.target) ||
@@ -169,29 +191,25 @@ export function useDriving(world: GameWorld | null) {
         if (!event.repeat) togglePause();
         return;
       }
-      const direction = KEY_DIRECTIONS[event.code];
-      if (!direction) return;
+      const input = KEY_INPUTS[event.code];
+      if (!input) return;
       event.preventDefault();
-      if (event.repeat) return;
-      pressedRef.current.set(event.code, direction);
-      refreshDirection();
+      if (event.repeat || pausedRef.current) return;
+      pressedRef.current.set(event.code, input);
+      refreshInputs();
     };
-
     const onKeyUp = (event: KeyboardEvent) => {
-      if (!KEY_DIRECTIONS[event.code]) return;
+      if (!KEY_INPUTS[event.code]) return;
       pressedRef.current.delete(event.code);
-      refreshDirection();
+      refreshInputs();
     };
-
     const onBlur = () => setPaused(true);
     const onVisibilityChange = () => {
       if (document.hidden) setPaused(true);
     };
-    // Focusing a form must immediately release previously held driving keys.
     const onFocus = (event: FocusEvent) => {
       if (isEditing(event.target)) setPaused(true);
     };
-
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
@@ -204,12 +222,12 @@ export function useDriving(world: GameWorld | null) {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       document.removeEventListener("focusin", onFocus);
     };
-  }, [world, refreshDirection, setPaused, stop, togglePause]);
+  }, [world, refreshInputs, setPaused, togglePause]);
 
   return {
     state,
     paused,
-    heldDirection,
+    heldInputs,
     togglePause,
     setPaused,
     relocate,

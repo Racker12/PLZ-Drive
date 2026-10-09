@@ -8,8 +8,10 @@ export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
   workers: 1,
-  timeout: 30_000,
-  expect: { timeout: 8_000 },
+  // The cloud browser renders Three.js through software WebGL. Leave time for
+  // a real rendered frame and driving checks without assuming hardware speed.
+  timeout: 90_000,
+  expect: { timeout: 20_000 },
   reporter: "list",
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000",

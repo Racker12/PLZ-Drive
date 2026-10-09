@@ -1,9 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { GameWorld } from "@/lib/types";
-import type { DrivingDirection } from "@/lib/driving";
+import type { VehicleInput } from "@/lib/vehicle";
 import { useDriving } from "@/hooks/use-driving";
 import {
   ArrowIcon,
@@ -14,16 +14,20 @@ import {
   RefreshIcon,
 } from "./icons";
 
-const RoadMap = dynamic(
-  () => import("./road-map").then((module) => module.RoadMap),
+const RoadScene = dynamic(
+  () => import("./road-scene").then((module) => module.RoadScene),
   {
     ssr: false,
     loading: () => (
       <div className="map-loading">
-        <span className="spinner" /> Karte wird gestartet …
+        <span className="spinner" /> Deine Straßen nehmen Form an …
       </div>
     ),
   },
+);
+const RoadMap = dynamic(
+  () => import("./road-map").then((module) => module.RoadMap),
+  { ssr: false },
 );
 
 export function GameView({
@@ -34,43 +38,92 @@ export function GameView({
   onExit: () => void;
 }) {
   const driving = useDriving(world);
-  const [follow, setFollow] = useState(true);
+  const [cameraMode, setCameraMode] = useState<"chase" | "hood">("chase");
+  const [sceneError, setSceneError] = useState("");
   const [showHelp, setShowHelp] = useState(true);
+  const [showInfo, setShowInfo] = useState(false);
   const state = driving.state;
-
-  const directionButton = (
-    direction: DrivingDirection,
-    label: string,
-    symbol: string,
-  ) => (
-    <button
-      type="button"
-      className={`direction-button direction-${direction} ${driving.heldDirection === direction ? "pressed" : ""}`}
-      aria-label={`Nach ${label} fahren`}
-      title={`Nach ${label} fahren`}
-      onPointerDown={(event) => {
-        event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
-        driving.controls.press(direction);
-      }}
-      onPointerUp={() => driving.controls.release(direction)}
-      onPointerCancel={() => driving.controls.release(direction)}
-      onLostPointerCapture={() => driving.controls.release(direction)}
-    >
-      {symbol}
-    </button>
+  const onSceneError = useCallback(
+    (message: string) => setSceneError(message),
+    [],
+  );
+  const changeCamera = useCallback(
+    () => setCameraMode((mode) => (mode === "chase" ? "hood" : "chase")),
+    [],
   );
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        event.code === "KeyC" &&
+        !event.repeat &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey
+      ) {
+        event.preventDefault();
+        changeCamera();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [changeCamera]);
+
+  function controlButton(
+    input: VehicleInput,
+    position: string,
+    label: string,
+    key: string,
+    arrow: string,
+  ) {
+    return (
+      <button
+        type="button"
+        className={`direction-button direction-${position} ${driving.heldInputs[input] ? "pressed" : ""}`}
+        aria-label={label}
+        title={label}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          driving.controls.press(input);
+        }}
+        onPointerUp={() => driving.controls.release(input)}
+        onPointerCancel={() => driving.controls.release(input)}
+        onLostPointerCapture={() => driving.controls.release(input)}
+      >
+        <span>{key}</span>
+        <small>{arrow}</small>
+      </button>
+    );
+  }
+
   return (
-    <main className="game-screen">
-      {state && (
-        <RoadMap
-          world={world}
-          coordinate={state.coordinate}
-          bearing={state.bearing}
-          follow={follow}
-        />
-      )}
+    <main
+      className="game-screen game-3d"
+      data-view={sceneError ? "map" : "3d"}
+      data-camera={cameraMode}
+    >
+      {state &&
+        (sceneError ? (
+          <RoadMap
+            world={world}
+            coordinate={state.coordinate}
+            bearing={state.bearing}
+            follow
+          />
+        ) : (
+          <RoadScene
+            world={world}
+            coordinate={state.coordinate}
+            bearing={state.bearing}
+            speedKmh={state.velocityKmh}
+            distanceMeters={state.distanceMeters}
+            steering={state.steering}
+            cameraMode={cameraMode}
+            onError={onSceneError}
+          />
+        ))}
+      <div className="scene-vignette" aria-hidden="true" />
       <header className="game-header">
         <button
           className="brand game-brand"
@@ -88,6 +141,8 @@ export function GameView({
         </button>
         <div className="game-session">
           <span className="live-dot" /> FREE DRIVE{" "}
+          <span className="session-separator">/</span>{" "}
+          {sceneError ? "KARTE" : "3D"}{" "}
           <span className="session-separator">/</span> {world.postalCode}
         </div>
         <button
@@ -113,36 +168,43 @@ export function GameView({
         <button
           className="text-button"
           type="button"
-          onClick={() => {
-            driving.relocate();
-            setFollow(true);
-          }}
+          onClick={() => driving.relocate()}
         >
           <RefreshIcon /> Neuen Startpunkt wählen
         </button>
-        <p className="area-note">
-          Freie Fahrt im geladenen Straßennetz rund um deinen Start.
-        </p>
+        <button
+          className="area-info-button"
+          type="button"
+          aria-expanded={showInfo}
+          onClick={() => setShowInfo((value) => !value)}
+        >
+          {world.fallback ? "Gespeichertes OSM-Netz" : "Echte OSM-Straßen"}
+          <span>i</span>
+        </button>
       </aside>
-      {world.notice && (
+      {showInfo && world.notice && (
         <div className="world-notice" role="status">
           {world.notice}
+          <br />
+          <span>Gebäude und Landschaft sind eine stilisierte 3D-Kulisse.</span>
+        </div>
+      )}
+      {sceneError && (
+        <div className="scene-error" role="status">
+          {sceneError} Du kannst in der Kartenansicht weiterfahren.
         </div>
       )}
       <div className="map-actions">
         <button
-          className={`map-action ${follow ? "active" : ""}`}
+          className="map-action active"
           type="button"
-          aria-label={
-            follow
-              ? "Karte folgt dem Auto – ausschalten"
-              : "Karte auf Auto zentrieren"
-          }
-          title="Auto folgen"
-          aria-pressed={follow}
-          onClick={() => setFollow((value) => !value)}
+          aria-label="Kamera wechseln"
+          title="Kamera wechseln · C"
+          onClick={changeCamera}
+          disabled={Boolean(sceneError)}
         >
           <CompassIcon />
+          <span className="camera-key">C</span>
         </button>
         <button
           className="map-action"
@@ -154,6 +216,11 @@ export function GameView({
           <PauseIcon paused={driving.paused} />
         </button>
       </div>
+      {!sceneError && (
+        <div className="camera-label">
+          {cameraMode === "chase" ? "VERFOLGERKAMERA" : "HAUBENKAMERA"}
+        </div>
+      )}
       {driving.paused && (
         <div className="pause-overlay">
           <PauseIcon paused={false} />
@@ -172,10 +239,19 @@ export function GameView({
         {driving.paused
           ? "PAUSIERT"
           : state?.atBoundary
-            ? "Sackgasse oder Netzrand. Wähle eine andere Richtung oder einen neuen Startpunkt."
-            : driving.heldDirection
-              ? "GUTE FAHRT"
-              : "Halte WASD oder eine Pfeiltaste zum Fahren."}
+            ? state.edgeId
+              ? "Rückwärtsfahrt hier nicht erlaubt. W / ↑ zum Weiterfahren."
+              : "Sackgasse oder Netzrand. Fahre zurück oder wähle einen neuen Startpunkt."
+            : state?.steeringConsumed &&
+                (driving.heldInputs.left || driving.heldInputs.right)
+              ? "Für den nächsten Abzweig A / D kurz loslassen."
+              : driving.heldInputs.left
+                ? "An der nächsten Abzweigung links."
+                : driving.heldInputs.right
+                  ? "An der nächsten Abzweigung rechts."
+                  : (state?.speedKmh ?? 0) > 1
+                    ? "GUTE FAHRT"
+                    : "W / ↑ zum Losfahren. A / D zum Abbiegen."}
       </div>
       <div className="game-bottom">
         <section className="controls-card" aria-label="Steuerung">
@@ -185,27 +261,33 @@ export function GameView({
             onClick={() => setShowHelp((value) => !value)}
             aria-expanded={showHelp}
           >
-            DEIN WEG, DEINE RICHTUNG <span>{showHelp ? "−" : "+"}</span>
+            DEINE STRASSEN. DEINE FAHRT.<span>{showHelp ? "−" : "+"}</span>
           </button>
           {showHelp && (
             <>
               <div className="controls-content">
                 <div className="direction-pad">
-                  {directionButton("north", "Norden", "↑")}
-                  {directionButton("west", "Westen", "←")}
-                  {directionButton("south", "Süden", "↓")}
-                  {directionButton("east", "Osten", "→")}
+                  {controlButton("throttle", "north", "Gas geben", "W", "↑")}
+                  {controlButton("left", "west", "Links abbiegen", "A", "←")}
+                  {controlButton(
+                    "brake",
+                    "south",
+                    "Bremsen und rückwärts fahren",
+                    "S",
+                    "↓",
+                  )}
+                  {controlButton("right", "east", "Rechts abbiegen", "D", "→")}
                 </div>
                 <p>
-                  <strong>WASD</strong> oder <strong>Pfeiltasten</strong>
+                  <strong>W</strong> Gas · <strong>S</strong> Bremse / zurück
                   <br />
-                  Taste halten, um zu fahren.
+                  <strong>A / D</strong> an Abzweigungen lenken
                   <br />
-                  <span>Nächste Kreuzung: neue Richtung.</span>
+                  <span>Alternativ: Pfeiltasten oder Touch.</span>
                 </p>
               </div>
               <div className="controls-footer">
-                <span>N ↑ &nbsp; E → &nbsp; S ↓ &nbsp; W ←</span>
+                <span>C = KAMERA</span>
                 <span>LEERTASTE = PAUSE</span>
               </div>
             </>
@@ -219,6 +301,9 @@ export function GameView({
                 .padStart(2, "0")}
             </strong>
             <span>KM/H</span>
+          </div>
+          <div className="gear" aria-label={`Gang ${state?.gear ?? "N"}`}>
+            {state?.gear ?? "N"}
           </div>
           <div className="dashboard-divider" />
           <div className="trip">
@@ -234,6 +319,16 @@ export function GameView({
             <span className="live-dot" />
           </div>
         </section>
+      </div>
+      <div className="scene-attribution">
+        <a
+          href="https://www.openstreetmap.org/copyright"
+          target="_blank"
+          rel="noreferrer"
+        >
+          © OpenStreetMap-Mitwirkende
+        </a>
+        <span> · STILISIERTE 3D-UMGEBUNG</span>
       </div>
     </main>
   );

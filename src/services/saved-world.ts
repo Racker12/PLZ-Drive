@@ -27,7 +27,9 @@ const graph: RoadGraph = {
 const center = snapshot.metadata.center as Coordinate;
 
 /** This is real, attributed OSM data for 10115; never use it for another PLZ. */
-export function getSavedBerlinWorld(): GameWorld {
+export function getSavedBerlinWorld(
+  reason: "outage" | "demo" = "outage",
+): GameWorld {
   const startNodeId = selectStartNode(graph, center);
   return {
     postalCode: snapshot.metadata.postalCode,
@@ -38,6 +40,10 @@ export function getSavedBerlinWorld(): GameWorld {
     startNodeId,
     fallback: true,
     notice:
-      "Gespeichertes OSM-Beispielnetz für 10115 Berlin (Stand 09.10.2026): Der Kartendienst ist gerade nicht verfügbar. Fahrgebiet etwa 650 m um die PLZ-Mitte; PLZ-Grenzen werden nicht geprüft.",
+      "Gespeichertes OSM-Beispielnetz für 10115 Berlin (Stand 09.10.2026): " +
+      (reason === "demo"
+        ? "Du hast die Berlin-Demo gewählt. Sie startet sofort ohne Anfrage an öffentliche Kartendienste. "
+        : "Der Kartendienst ist gerade nicht verfügbar. ") +
+      "Fahrgebiet etwa 650 m um die PLZ-Mitte; PLZ-Grenzen werden nicht geprüft.",
   };
 }

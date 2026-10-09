@@ -16,7 +16,10 @@ export function DriveApp() {
 
   async function start(event: FormEvent) {
     event.preventDefault();
-    const value = postalCode.trim();
+    await startWorld(postalCode.trim());
+  }
+
+  async function startWorld(value: string, preferSnapshot = false) {
     if (!/^\d{5}$/.test(value)) {
       setError("Bitte gib eine deutsche Postleitzahl mit genau 5 Ziffern ein.");
       return;
@@ -30,7 +33,10 @@ export function DriveApp() {
       const response = await fetch("/api/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postalCode: value }),
+        body: JSON.stringify({
+          postalCode: value,
+          ...(preferSnapshot ? { preferSnapshot: true } : {}),
+        }),
         signal: controller.signal,
       });
       const data = await response.json();
@@ -69,12 +75,12 @@ export function DriveApp() {
         <div className="header-note">
           <span className="live-dot" /> DEINE STADT. DEIN SPIEL.
         </div>
-        <span className="version-badge">MVP / 01</span>
+        <span className="version-badge">3D / 02</span>
       </header>
       <section className="hero">
         <div className="hero-content">
           <div className="eyebrow">
-            <span className="eyebrow-line" /> FREE DRIVE · MADE FOR EXPLORING
+            <span className="eyebrow-line" /> 3D FREE DRIVE · MADE FOR EXPLORING
           </div>
           <h1>
             Deine PLZ.
@@ -83,8 +89,8 @@ export function DriveApp() {
           </h1>
           <p className="hero-description">
             Vom eigenen Viertel bis ans andere Ende der Stadt.
-            <br className="desktop-break" /> Steig ein und entdecke echte
-            Straßen — direkt im Browser.
+            <br className="desktop-break" /> Steig ein und erlebe echte Straßen
+            in 3D — direkt im Browser.
           </p>
           <form className="start-form" onSubmit={start} noValidate>
             <label htmlFor="postal-code">WO SOLL DEINE FAHRT BEGINNEN?</label>
@@ -119,6 +125,21 @@ export function DriveApp() {
                   Spiel starten <ArrowIcon />
                 </>
               )}
+            </button>
+            <button
+              className="demo-button"
+              type="button"
+              disabled={loading}
+              onClick={() => {
+                setPostalCode("10115");
+                void startWorld("10115", true);
+              }}
+            >
+              <span>
+                Berlin sofort testen
+                <small>ECHTE STRASSEN · DIREKT LOSFAHREN</small>
+              </span>
+              <ArrowIcon />
             </button>
             {error && (
               <p id="start-error" className="error-message" role="alert">
@@ -181,7 +202,7 @@ export function DriveApp() {
           <span className="step-number">02</span>
           <div>
             <h2>Einsteigen & losfahren</h2>
-            <p>Mit den Tasten durch echte Straßen.</p>
+            <p>In 3D mit Gas, Bremse und Verfolgerkamera.</p>
           </div>
         </div>
         <div className="how-step">
