@@ -1257,3 +1257,326 @@ svg {
     transform: none;
   }
 }
+
+/* The driving view owns its canvas size; library CSS cannot collapse it. */
+.game-screen .road-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.road-scene canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.scene-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    #0e191630 0%,
+    transparent 20%,
+    transparent 60%,
+    #0d181766 100%
+  );
+}
+.game-3d .game-header {
+  background: linear-gradient(#10201ebb, transparent);
+}
+.game-3d .location-card {
+  width: 238px;
+  background: #102019dd;
+  border-color: #bcd0aa22;
+}
+.game-3d .location-card h1 {
+  font-size: 26px;
+}
+.area-info-button {
+  margin-top: 15px;
+  border-top: 1px solid #ffffff12;
+  padding: 12px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: transparent;
+  color: #899d81;
+  font: 8px monospace;
+  letter-spacing: 0.6px;
+}
+.area-info-button > span {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #82997177;
+  border-radius: 50%;
+  font-size: 8px;
+}
+.game-3d .world-notice {
+  top: 97px;
+  background: #132317ea;
+}
+.world-notice > span {
+  color: #a4b88d;
+}
+.camera-key {
+  position: absolute;
+  font: 7px monospace;
+  right: 5px;
+  bottom: 4px;
+  color: #7a8e6d;
+}
+.map-action {
+  position: relative;
+}
+.map-action:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.camera-label {
+  position: absolute;
+  top: 204px;
+  right: 30px;
+  font: 7px monospace;
+  letter-spacing: 1px;
+  color: #d3dfc4;
+  text-shadow: 0 1px 4px #000;
+}
+.scene-error {
+  position: absolute;
+  top: 85px;
+  left: 310px;
+  right: 90px;
+  max-width: 500px;
+  border: 1px solid #bbdb7f40;
+  background: #15271ae8;
+  padding: 13px 17px;
+  color: #c5d9a9;
+  font-size: 11px;
+  line-height: 1.6;
+  border-radius: 8px;
+}
+.game-3d .controls-card {
+  width: 320px;
+  background: #102018e0;
+}
+.game-3d .direction-pad {
+  grid-template-columns: repeat(3, 32px);
+  grid-template-rows: repeat(2, 32px);
+}
+.game-3d .direction-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.game-3d .direction-button > span {
+  font: 12px monospace;
+}
+.game-3d .direction-button > small {
+  font: 8px monospace;
+  opacity: 0.5;
+}
+.game-3d .controls-content {
+  gap: 15px;
+}
+.game-3d .dashboard {
+  background: #102018e0;
+  padding: 19px 24px;
+}
+.gear {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 32px;
+  border: 1px solid #adc99044;
+  border-radius: 4px;
+  font: 16px monospace;
+  color: #cced9c;
+  margin-left: -8px;
+}
+.game-3d .driving-status {
+  max-width: 405px;
+  background: #102018c9;
+  bottom: 165px;
+}
+.scene-attribution {
+  position: absolute;
+  bottom: 7px;
+  right: 16px;
+  font-size: 8px;
+  color: #c0d0b4;
+  text-shadow: 0 1px 4px #000;
+}
+.scene-attribution > span {
+  color: #9bb18b;
+  font: 6px monospace;
+  letter-spacing: 0.4px;
+}
+@media (max-width: 760px) {
+  .game-3d .location-card {
+    width: 205px;
+    padding: 14px;
+  }
+  .game-3d .location-card h1 {
+    font-size: 21px;
+  }
+  .game-3d .location-coordinates {
+    margin: 10px 0;
+    padding: 9px 0;
+  }
+  .area-info-button {
+    margin-top: 10px;
+    padding-top: 9px;
+    font-size: 7px;
+  }
+  .camera-label {
+    right: 18px;
+    top: 182px;
+    font-size: 6px;
+  }
+  .game-3d .controls-card {
+    max-width: 300px;
+    min-width: 235px;
+  }
+  .game-3d .controls-content {
+    gap: 10px;
+  }
+  .game-3d .dashboard {
+    padding: 15px;
+  }
+  .game-3d .world-notice {
+    top: 281px;
+    left: 18px;
+    right: 18px;
+    width: auto;
+    transform: none;
+  }
+  .scene-error {
+    top: 285px;
+    left: 18px;
+    right: 18px;
+  }
+  .game-3d .driving-status {
+    bottom: 205px;
+  }
+}
+@media (max-width: 510px) {
+  .game-3d {
+    min-height: 620px;
+  }
+  .game-3d .game-bottom {
+    flex-wrap: nowrap;
+    gap: 8px;
+    bottom: 32px;
+    align-items: end;
+  }
+  .game-3d .controls-card {
+    min-width: 0;
+    flex: 0 0 132px;
+    width: 132px;
+    padding: 11px;
+    max-width: none;
+  }
+  .game-3d .controls-title {
+    font-size: 6px;
+    letter-spacing: 0.7px;
+    line-height: 1.8;
+    gap: 7px;
+  }
+  .game-3d .controls-content {
+    padding: 10px 0;
+  }
+  .game-3d .controls-content > p {
+    display: none;
+  }
+  .game-3d .controls-footer {
+    font-size: 5px;
+    letter-spacing: 0;
+    gap: 5px;
+  }
+  .game-3d .controls-footer > span:last-child {
+    display: none;
+  }
+  .game-3d .dashboard {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    padding: 14px 12px;
+    gap: 10px;
+  }
+  .game-3d .speed strong {
+    font-size: 35px;
+  }
+  .game-3d .dashboard-car,
+  .game-3d .dashboard-divider {
+    display: none;
+  }
+  .game-3d .trip {
+    min-width: 0;
+    max-width: 78px;
+  }
+  .game-3d .trip > span {
+    font-size: 6px;
+  }
+  .game-3d .trip > strong {
+    font-size: 17px;
+  }
+  .game-3d .trip p {
+    max-width: 78px;
+    font-size: 7px;
+  }
+  .game-3d .gear {
+    width: 20px;
+    height: 26px;
+    font-size: 12px;
+    margin-left: 0;
+  }
+  .game-3d .driving-status {
+    bottom: 193px;
+    font-size: 9px;
+  }
+  .scene-attribution {
+    bottom: 8px;
+    right: 14px;
+    font-size: 7px;
+  }
+  .scene-attribution > span {
+    display: none;
+  }
+}
+.demo-button {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  width: 100%;
+  border: 1px solid #899f6733;
+  border-radius: 6px;
+  color: #c1d9a2;
+  background: #17211a;
+  text-align: left;
+  font-size: 11px;
+  transition: background 0.2s;
+}
+.demo-button:hover:not(:disabled) {
+  background: #24321e;
+}
+.demo-button:disabled {
+  opacity: 0.5;
+}
+.demo-button small {
+  display: block;
+  font: 6px monospace;
+  letter-spacing: 0.8px;
+  color: #7c9369;
+  margin-top: 5px;
+}
+.demo-button svg {
+  width: 16px;
+}
+.preview-3d .preview-coordinate {
+  bottom: 68px;
+}
