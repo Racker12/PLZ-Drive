@@ -1,0 +1,7 @@
+.next
+node_modules
+package-lock.json
+playwright-report
+test-results
+src/data/berlin-10115.json
+public/maplibre-worker.mjs
